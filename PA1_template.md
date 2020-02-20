@@ -9,8 +9,9 @@ output:
 
 ```r
 unzip("activity.zip")
-activity <- read.csv("activity.csv", na.strings = "NA")
+activity <- read.csv("activity.csv", na.strings = "NA", stringsAsFactors = FALSE)
 activity <- tbl_df(activity)
+activity <- activity %>% mutate(date=as.Date(date))
 ```
 
 ## What is mean total number of steps taken per day?
@@ -29,7 +30,7 @@ activity_byday <- activity %>% group_by(date) %>% summarize(steps = sum(steps, n
 barplot(activity_byday$steps, main = "Number of steps taken each day", xlab = "Date" , ylab = "Steps", names.arg = activity_byday$date)
 ```
 
-![](figures/hist_total_number_of_steps-1.png)<!-- -->
+![](figure/hist_total_number_of_steps-1.png)<!-- -->
 
 ### Mean and median of the total number of steps taken per day
 
@@ -50,10 +51,10 @@ Median of the total number of steps: 10395
 
 ```r
 activity_by_int <- activity %>% group_by(interval) %>% summarize(steps = mean(steps, na.rm = TRUE))
-with(activity_by_int, plot(interval, steps, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Average number of steps taken in 5-minute intervals"))
+xyplot(steps ~ interval, data = activity_by_int, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Average number of steps taken in 5-minute intervals")
 ```
 
-![](figures/plot_avg_steps_5-min-1.png)<!-- -->
+![](figure/plot_avg_steps_5-min-1.png)<!-- -->
 
 ### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 
@@ -90,10 +91,10 @@ activity_imp <- activity %>% group_by(interval) %>% mutate(steps = ifelse(is.na(
 
 ```r
 activity_by_day_imp <- activity_imp %>% group_by(date) %>% summarize(steps = sum(steps, na.rm = TRUE))
-barplot(activity_by_day_imp$steps, main = "Number of steps taken for each day", xlab = "Date" , ylab = "Steps", names.arg = activity_by_day_imp$date)
+barplot(activity_by_day_imp$steps, main = "Number of steps taken for each day with imputed values", xlab = "Date" , ylab = "Steps", names.arg = activity_by_day_imp$date)
 ```
 
-![](figures/hist_total_number_of_steps_imputed-1.png)<!-- -->
+![](figure/hist_total_number_of_steps_imputed-1.png)<!-- -->
 
 ```r
 steps_mean_imp <- as.integer(mean(activity_by_day_imp$steps))
@@ -105,3 +106,37 @@ Mean of the total number of steps with imputed values: 10766.  Mean increased by
 Median of the total number of steps with imputed values: 10766. Median increased by 371.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+We're defining factor for day type and defining function which will return day type for weekday abbreviation (abbreviation is in Russian locale)
+
+
+```r
+daytypefactor <- factor(c("weekend","weekday"))
+
+
+isWeekend = function(x){
+        if(x[1] %in% c('Сб','Вс')){
+                return(daytypefactor[1])
+        }
+        return(daytypefactor[2])
+}
+
+
+activity_imp <- activity_imp %>% group_by(date) %>% mutate(daytype = isWeekend(weekdays(date, TRUE)))
+```
+
+
+### Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+
+```r
+activity_by_int_daytype <- activity_imp %>% group_by(interval, daytype) %>% summarize(steps = mean(steps, na.rm = TRUE))
+
+
+xyplot(steps ~ interval | daytype, data = activity_by_int_daytype, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Activity patterns for weekdays and weekends", layout = c(1, 2))
+```
+
+![](figure/plot_avg_steps_by_daytype-1.png)<!-- -->
+

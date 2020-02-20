@@ -5,14 +5,16 @@ output:
     keep_md: true
 ---
 ```{r echo = FALSE, message = FALSE}
-knitr::opts_chunk$set(fig.path = "figures/")
+knitr::opts_chunk$set(fig.path = "figure/")
 library(dplyr)
+library(lattice)
 ```
 ## Loading and preprocessing the data
 ```{r loading, results = "hide"}
 unzip("activity.zip")
-activity <- read.csv("activity.csv", na.strings = "NA")
+activity <- read.csv("activity.csv", na.strings = "NA", stringsAsFactors = FALSE)
 activity <- tbl_df(activity)
+activity <- activity %>% mutate(date=as.Date(date))
 ```
 
 ## What is mean total number of steps taken per day?
@@ -46,7 +48,7 @@ Median of the total number of steps: `r steps_median`
 
 ```{r plot_avg_steps_5-min}
 activity_by_int <- activity %>% group_by(interval) %>% summarize(steps = mean(steps, na.rm = TRUE))
-with(activity_by_int, plot(interval, steps, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Average number of steps taken in 5-minute intervals"))
+xyplot(steps ~ interval, data = activity_by_int, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Average number of steps taken in 5-minute intervals")
 ```
 
 ### Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
@@ -90,3 +92,35 @@ Mean of the total number of steps with imputed values: `r steps_mean_imp`.  Mean
 Median of the total number of steps with imputed values: `r steps_median_imp`. Median increased by `r steps_median_imp-steps_median`.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+We're defining factor for day type and defining function which will return day type for weekday abbreviation (abbreviation is in Russian locale)
+
+```{r daytypefactor}
+
+daytypefactor <- factor(c("weekend","weekday"))
+
+
+isWeekend = function(x){
+        if(x[1] %in% c('Сб','Вс')){
+                return(daytypefactor[1])
+        }
+        return(daytypefactor[2])
+}
+
+
+activity_imp <- activity_imp %>% group_by(date) %>% mutate(daytype = isWeekend(weekdays(date, TRUE)))
+
+```
+
+
+### Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{r plot_avg_steps_by_daytype}
+activity_by_int_daytype <- activity_imp %>% group_by(interval, daytype) %>% summarize(steps = mean(steps, na.rm = TRUE))
+
+
+xyplot(steps ~ interval | daytype, data = activity_by_int_daytype, type = "l", xlab = "5-minutes interval", ylab = "Average number of steps", main = "Activity patterns for weekdays and weekends", layout = c(1, 2))
+```
+
